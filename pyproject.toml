@@ -1,11 +1,15 @@
 [tool.poetry]
 name = "tyme"
-version = "0.1.0"
+version = "0.1.1"
 description = "track your moments everywhere"
 authors = ["Enrico Borba <enricozb@gmail.com>"]
 
+[tool.poetry.scripts]
+tyme = "tyme.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.7"
+hjson = "^3.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
