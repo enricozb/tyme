@@ -16,6 +16,13 @@ def parse_args():
                         "-d",
                         metavar="ACTIVITY",
                         help="Finish the current activity")
+    action.add_argument("--create-activity",
+                        "-c",
+                        dest="new_activity",
+                        metavar="ACTIVITY",
+                        help="Create a new activity. The format can either be "
+                             "a relative or an absolute path.")
+
     parser.add_argument("--user",
                         "-u",
                         required=False,
@@ -38,5 +45,8 @@ def main():
     elif args.done:
         activity, time = timeline.done()
         print(f"You spent {elapsed_time_phrase(time)} on '{activity}'")
+
+    elif args.new_activity:
+        timeline.new_activity(args.new_activity)
 
     timeline.save()
