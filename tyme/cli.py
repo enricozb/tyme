@@ -1,25 +1,25 @@
 import argparse
 import sys
 
-from tyme.timeline import Timeline
-from tyme import init
+from tyme.timeline import Timeline, TimelineError
+from tyme import init as tyme_init
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    action = parser.add_mutually_exclusive_group(required=True)
+    action = parser.add_mutually_exclusive_group()
     action.add_argument("--start",
                         "-s",
                         metavar="ACTIVITY",
                         help="Start a new activity")
     action.add_argument("--done",
                         "-d",
-                        metavar="ACTIVITY",
+                        action="store_true",
                         help="Finish the current activity")
     action.add_argument("--create-activity",
                         "-c",
                         dest="new_activity",
-                        metavar="ACTIVITY",
+                        metavar="ACTIVITY-OR-PATH",
                         help="Create a new activity. The format can either be "
                              "a relative or an absolute path.")
 
@@ -33,20 +33,26 @@ def parse_args():
 
 
 def main():
-    init()
+    tyme_init()
 
     args = parse_args()
 
-    timeline = Timeline(user=args.user)
+    try:
+        timeline = Timeline(user=args.user)
 
-    if args.start:
-        timeline.start(args.start)
+        if args.start:
+            timeline.start(args.start)
 
-    elif args.done:
-        activity, time = timeline.done()
-        print(f"You spent {elapsed_time_phrase(time)} on '{activity}'")
+        elif args.done and timeline.current_activity() is not None:
+            timeline.done()
 
-    elif args.new_activity:
-        timeline.new_activity(args.new_activity)
+        elif args.new_activity:
+            timeline.new_activity(args.new_activity)
 
-    timeline.save()
+        else:
+            timeline.print_status()
+
+        timeline.save()
+
+    except TimelineError as e:
+        print(e)
