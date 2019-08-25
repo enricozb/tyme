@@ -61,7 +61,7 @@ class Timeline:
                                             current_activity["name"],
                                             ongoing=True)
 
-    def start(self, activity: str) -> None:
+    def start(self, activity: str, quiet: bool = True) -> None:
         """
         Completes any ongoing activity and starts a new one.
         """
@@ -83,9 +83,10 @@ class Timeline:
             "start": start_timestamp.datetime_str
         })
 
-        print(f"You started to work on '{activity}'.")
+        if not quiet:
+            print(f"You started to work on '{activity}'.")
 
-    def done(self) -> None:
+    def done(self, quiet: bool = True) -> None:
         # grab the most recent day and the most recent activity on that day
         last_activity = self.timeline[sorted(self.timeline.keys())[-1]][-1]
 
@@ -93,9 +94,10 @@ class Timeline:
         end_timestamp = utils.utc_now()
 
         last_activity["end"] = end_timestamp.datetime_str
-        utils.print_elapsed_time_phrase(start_timestamp,
-                                        end_timestamp,
-                                        last_activity["name"])
+        if not quiet:
+            utils.print_elapsed_time_phrase(start_timestamp,
+                                            end_timestamp,
+                                            last_activity["name"])
 
         # if the ongoing activity was started today, we're done.
         if start_timestamp.date_str == end_timestamp.date_str:
@@ -141,7 +143,7 @@ class Timeline:
                         "activities": self.activities},
                        timeline)
 
-    def new_activity(self, activity):
+    def new_activity(self, activity, parents=False):
         """
         Creates a new activity. `activity` can either be a single name or a
         path of the form /path/to/activity. If the activity is not a path,
@@ -149,6 +151,9 @@ class Timeline:
         in the hierarchy this activity should be created. If a path of the
         form /p1/p2/p3/.../pn is passed in, then p1 through p(n-1) must exist
         in that order and pn will be the new activity.
+
+        If parents is true, the parents of an absolute activity path /p1/.../pn
+        will also be created if they do not exist.
         """
         if activity.startswith("/"):
             activity_path = activity.split("/")[1:]
@@ -160,8 +165,12 @@ class Timeline:
             current_category = self.activities
             for category in path:
                 if category not in current_category:
-                    raise ValueError(f"the activity '{category}' within "
-                                     f"'{activity}' does not exist")
+                    if not parents:
+                        raise ValueError(f"the activity '{category}' within "
+                                         f"'{activity}' does not exist")
+                    else:
+                        # just make a new activity.
+                        current_category[category] = (str(uuid.uuid4()), {})
 
                 # [1] is because the first element in each activity is a uuid
                 current_category = current_category[category][1]
@@ -169,7 +178,7 @@ class Timeline:
             current_category[new_activity] = (str(uuid.uuid4()), {})
 
         elif "/" in activity:
-            raise ValueError("names of activities cannot contian '/'")
+            raise ValueError("names of activities cannot contain '/'")
 
         else:
             current_category = self.activities

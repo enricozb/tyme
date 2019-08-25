@@ -22,6 +22,15 @@ def parse_args():
                         metavar="ACTIVITY-OR-PATH",
                         help="Create a new activity. The format can either be "
                              "a relative or an absolute path.")
+    action.add_argument("--create-parents-activity",
+                        "-p",
+                        dest="new_activity",
+                        metavar="ACTIVITY-PATH",
+                        help="Create a new activity and parents if they do "
+                             "not exist. This is similar to mkdir -p. Careful "
+                             "with any typos, as they will be created. If a "
+                             "non-absolute path is passed in, this will have "
+                             "the same effect as tyme -c.")
 
     parser.add_argument("--user",
                         "-u",
@@ -41,13 +50,13 @@ def main():
         timeline = Timeline(user=args.user)
 
         if args.start:
-            timeline.start(args.start)
+            timeline.start(args.start, quiet=False)
 
         elif args.done and timeline.current_activity() is not None:
-            timeline.done()
+            timeline.done(quiet=False)
 
         elif args.new_activity:
-            timeline.new_activity(args.new_activity)
+            timeline.new_activity(args.new_activity, parents=True)
 
         else:
             timeline.print_status()
