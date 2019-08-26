@@ -7,7 +7,15 @@ from tyme import init as tyme_init
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--user",
+                        "-u",
+                        required=False,
+                        default=None,
+                        help="Specify a user. If this is not present, then "
+                        "the default user is assumed.")
+
     commands = parser.add_subparsers(title="commands",
+                                     required=True,
                                      dest="command",
                                      help="For help on a specific command: "
                                           "`tyme [command] -h`.")
@@ -39,12 +47,7 @@ def parse_args():
                       "appear, in order to decide where to place this "
                       "activity.")
 
-    parser.add_argument("--user",
-                        "-u",
-                        required=False,
-                        default=None,
-                        help="Specify a user. If this is not present, then "
-                        "the default user is assumed.")
+    commands.add_parser("status", help="Output the current activity if any.")
 
     return parser.parse_args()
 
@@ -66,7 +69,7 @@ def main():
         elif args.command == "make":
             timeline.new_activity(args.activity, parents=args.parents)
 
-        elif args.command is None:
+        elif args.command == "status":
             timeline.print_status()
 
         timeline.save()
