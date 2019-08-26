@@ -7,37 +7,45 @@ from tyme import init as tyme_init
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    action = parser.add_mutually_exclusive_group()
-    action.add_argument("--start",
-                        "-s",
-                        metavar="ACTIVITY",
-                        help="Start a new activity")
-    action.add_argument("--done",
-                        "-d",
-                        action="store_true",
-                        help="Finish the current activity")
-    action.add_argument("--create-activity",
-                        "-c",
-                        dest="new_activity",
-                        metavar="ACTIVITY-OR-PATH",
-                        help="Create a new activity. The format can either be "
-                             "a relative or an absolute path.")
-    action.add_argument("--create-parents-activity",
-                        "-p",
-                        dest="new_activity",
-                        metavar="ACTIVITY-PATH",
-                        help="Create a new activity and parents if they do "
-                             "not exist. This is similar to mkdir -p. Careful "
-                             "with any typos, as they will be created. If a "
-                             "non-absolute path is passed in, this will have "
-                             "the same effect as tyme -c.")
+    commands = parser.add_subparsers(title="commands",
+                                     dest="command",
+                                     help="For help on a specific command: "
+                                          "`tyme [command] -h`.")
+
+    start = commands.add_parser("start", help="Start a new activity.")
+    start.add_argument("activity",
+                       metavar="ACTIVITY",
+                       help="The activity to be started.")
+
+    stop = commands.add_parser("stop", help="Stop the current activity.")
+
+    make = commands.add_parser("make", help="Make a new activity.")
+    make.add_argument("--parents",
+                      "-p",
+                      action="store_true",
+                      help="When creating an activity with an absolute path, "
+                      "make any non-existing parents. For example, doing "
+                      "`tyme make -p /projects/tyme` "
+                      "will create /projects and /projects/tyme if /projects "
+                      "doesn't already exist")
+
+    make.add_argument("activity",
+                      metavar="ACTIVITY-OR-PATH",
+                      help="Create a new activity. The format can either be "
+                      "a relative or an absolute path. For example, both "
+                      "'cooking' and '/leisure/netflix' are valid examples "
+                      "of relative and absolute activities respectively. A "
+                      "relative activity will cause an interactive menu to "
+                      "appear, in order to decide where to place this "
+                      "activity.")
 
     parser.add_argument("--user",
                         "-u",
                         required=False,
                         default=None,
                         help="Specify a user. If this is not present, then "
-                             "the default user is assumed.")
+                        "the default user is assumed.")
+
     return parser.parse_args()
 
 
@@ -49,16 +57,16 @@ def main():
     try:
         timeline = Timeline(user=args.user)
 
-        if args.start:
-            timeline.start(args.start, quiet=False)
+        if args.command == "start":
+            timeline.start(args.activity, quiet=False)
 
-        elif args.done and timeline.current_activity() is not None:
+        elif args.command == "stop" and timeline.current_activity() is not None:
             timeline.done(quiet=False)
 
-        elif args.new_activity:
-            timeline.new_activity(args.new_activity, parents=True)
+        elif args.command == "make":
+            timeline.new_activity(args.activity, parents=args.parents)
 
-        else:
+        elif args.command is None:
             timeline.print_status()
 
         timeline.save()

@@ -66,16 +66,15 @@ class Timeline:
         Completes any ongoing activity and starts a new one.
         """
         activity_id = self.activity_id(activity)
+        if activity_id is None:
+            raise TimelineError(f"The activity '{activity}' does not exist.")
 
         if self.current_activity() is not None:
-            self.done()
+            self.done(quiet=quiet)
 
         start_timestamp = utils.utc_now()
         if start_timestamp.date_str not in self.timeline:
             self.timeline[start_timestamp.date_str] = []
-
-        if activity_id is None:
-            raise TimelineError(f"The activity '{activity}' does not exist.")
 
         self.timeline[start_timestamp.date_str].append({
             "id": activity_id,
@@ -84,7 +83,7 @@ class Timeline:
         })
 
         if not quiet:
-            print(f"You started to work on '{activity}'.")
+            print(f"You started to spend time on '{activity}'.")
 
     def done(self, quiet: bool = True) -> None:
         # grab the most recent day and the most recent activity on that day
@@ -212,7 +211,7 @@ class Timeline:
                     current_category = current_category[categories[cat - 1]][1]
 
             current_category[activity] = (str(uuid.uuid4()), {})
-            print(f"activity {activity} created under {path}")
+            print(f"activity created at '{path + activity}'")
 
     def activity_id(self, activity: str) -> Optional[str]:
         def search(category: JSONActivities) -> Optional[str]:

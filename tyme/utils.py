@@ -57,4 +57,4 @@ def print_elapsed_time_phrase(
 
 
 def offset_day(ts: Timestamp, days_offset: int) -> str:
-    return (ts.datetime + timedelta(days=days_offset)).isoformat()
+    return (ts.datetime + timedelta(days=days_offset)).date().isoformat()
