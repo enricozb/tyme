@@ -46,7 +46,41 @@ Under which category should this activity be placed? [0-1] 0
 activity created at '/leisure/video games'
 ```
 
-### Additional Help
+### What Did I Do Today?
+You can see your most recent activities by doing
+
+```
+[enricozb : ~] tyme log
+2019-08-26:
+ |-nap (1 hour 5 minutes and 10 seconds):
+ |   start: 02:04:06
+ |   end:   03:09:16
+ V
+2019-08-27:
+ |-shower (14 minutes and 1 second):
+ |   start: 03:09:16
+ |   end:   03:23:17
+ V
+ |-groceries (5 minutes and 20 seconds):
+ |   start: 03:23:17
+ |   end:   03:28:37
+ V
+ |-cooking (7 minutes and 48 seconds):
+ |   start: 03:28:37
+ |   end:   03:36:25
+ V
+ |-eating (20 minutes and 10 seconds):
+ |   start: 03:36:25
+ |   end:   03:56:35
+ V
+```
+By default, the 5 most recent activities are shown. To show a specific number,
+do
+```
+tyme log [number]
+```
+
+### Additional Help on Other Commands
 For general help on how the command-line interface works, just type
 ```
 tyme -h
