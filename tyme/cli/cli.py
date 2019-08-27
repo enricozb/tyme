@@ -3,6 +3,7 @@ import sys
 
 import colorama
 
+import tyme.cli.render as render
 from tyme.timeline import Timeline, TimelineError
 from tyme import init as tyme_init
 
@@ -52,7 +53,9 @@ def parse_args():
     commands.add_parser("status", help="Output the current activity if any.")
 
     log = commands.add_parser("log",
-                              help="Get a log of some recent activities.")
+                              help="Get a log of some recent activities. "
+                                   "Tracked sections of time are blue. "
+                                   "Untracked sections of time are red.")
     log.add_argument("number",
                      nargs="?",
                      default=5,
@@ -72,19 +75,25 @@ def main():
         timeline = Timeline(user=args.user)
 
         if args.command == "start":
-            timeline.start(args.activity, quiet=False)
+            done_activity = timeline.start(args.activity)
+            render.start(args.activity, done_activity)
 
         elif args.command == "stop" and timeline.current_activity() is not None:
-            timeline.done(quiet=False)
+            start, end, activity = timeline.done()
+            render.done(start, end, activity)
 
         elif args.command == "make":
-            timeline.new_activity(args.activity, parents=args.parents)
+            activity = render.select_activity_path(args.activity,
+                                                   timeline.activities)
+            timeline.new_activity(activity, parents=args.parents)
+            render.new_activity(activity)
 
         elif args.command == "status":
-            timeline.print_status()
+            render.print_status(timeline.current_activity())
 
         elif args.command == "log":
-            timeline.print_log(num=args.number)
+            recent_activities = timeline.recent_activities(num=args.number)
+            render.print_log(recent_activities)
 
         timeline.save()
 

@@ -3,7 +3,6 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 import hjson
-from colorama import Fore, Style
 
 import tyme.utils as utils
 from tyme.common import *
@@ -49,100 +48,27 @@ class Timeline:
             raise ValueError(
                 "both timeline and activies must have values or be None")
 
-    def print_status(self) -> None:
-        current_activity = self.current_activity()
-        if current_activity is None:
-            print("There is no ongoing activity.")
+    def recent_activities(self, num: int) -> Dict[str, List[Dict[str, str]]]:
+        # `activities`: a map from day (str) to a list of timeline entries
+        activities: Dict[str, List[Dict[str, str]]] = defaultdict(list)
 
-        else:
-            start_timestamp = utils.parse(current_activity["start"])
-            end_timestamp = utils.utc_now()
+        # Grab the most recent `num` events
+        for day in sorted(self.timeline.keys(), reverse=True):
+            for activity in self.timeline[day][::-1]:
+                # not a real activity, but a link to one on a previous day
+                if "previous" in activity:
+                    continue
 
-            utils.print_elapsed_time_phrase(start_timestamp,
-                                            end_timestamp,
-                                            current_activity["name"],
-                                            ongoing=True)
+                activities[day].append(activity)
 
-    def print_log(self, num: int = 5) -> None:
-        def most_recent_activities(num) -> Dict[str, List[Dict[str, str]]]:
-            count = 0
+                num -= 1
+                if num == 0:
+                    return dict(activities)
 
-            # `activities`: a map from day (str) to a list of timeline entries
-            activities: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        return dict(activities)
 
-            # Grab the most recent `num` events
-            for day in sorted(self.timeline.keys(), reverse=True):
-                for activity in self.timeline[day][::-1]:
-                    # not a real activity, but a link to one on a previous day
-                    if "previous" in activity:
-                        continue
-
-                    activities[day].append(activity)
-
-                    count += 1
-                    if count == num:
-                        return dict(activities)
-
-            return dict(activities)
-
-        activities = most_recent_activities(num)
-
-        # Show the oldest event first, so the most recent is at the bottom.
-        last_end: Optional[utils.Timestamp] = None
-        for day in sorted(activities):
-            print(f"On {day}:")
-            for activity in activities[day][::-1]:
-                name = activity["name"]
-                start = utils.parse(activity["start"])
-
-                end: Optional[utils.Timestamp] = None
-                if "end" in activity:
-                    end = utils.parse(activity["end"])
-
-                if end is not None:
-                    phrase = utils.format_elapsed_time_phrase(start,
-                                                              end,
-                                                              name,
-                                                              short=True)
-                else:
-                    phrase = utils.format_elapsed_time_phrase(start,
-                                                              utils.utc_now(),
-                                                              name,
-                                                              short=True)
-
-                # time passed between the end of the last event and the start
-                # of this one. Therefore, there is time unaccounted for.
-                if last_end is not None and last_end != start:
-                    unalloc_phrase = utils.format_elapsed_time_phrase(
-                        last_end, start, "", short=True)
-
-                    print(Fore.RED + " |")
-                    print(Style.DIM + Fore.RED + " |", end="")
-                    print(Fore.RED + f" ({unalloc_phrase})")
-                    print(Fore.RED + " |")
-
-                else:
-                    print(Fore.BLUE + " V")
-
-                print(Fore.BLUE + f" |-", end="")
-                print(Fore.GREEN + f"{name}", end="")
-                print(Style.BRIGHT + Fore.YELLOW + f" ({phrase}):")
-                print(Fore.BLUE + f" |", end="")
-                print(f"   start: ", end="")
-                print(Fore.YELLOW + f"{start.time_str}")
-
-                print(Fore.BLUE + " |", end="")
-                if end is None:
-                    print(Fore.YELLOW + "          ...")
-                else:
-                    print(f"   end:   ", end="")
-                    print(Fore.YELLOW + f"{end.time_str}")
-
-                last_end = end
-
-        print(Fore.BLUE + " V")
-
-    def start(self, activity: str, quiet: bool=True) -> None:
+    def start(self,
+              activity: str) -> Optional[Tuple[utils.Timestamp, utils.Timestamp, str]]:
         """
         Completes any ongoing activity and starts a new one.
         """
@@ -150,8 +76,10 @@ class Timeline:
         if activity_id is None:
             raise TimelineError(f"The activity '{activity}' does not exist.")
 
+        activity_completed: Optional[Tuple[utils.Timestamp,
+                                           utils.Timestamp, str]] = None
         if self.current_activity() is not None:
-            self.done(quiet=quiet)
+            activity_completed = self.done()
 
         start_timestamp = utils.utc_now()
         if start_timestamp.date_str not in self.timeline:
@@ -163,10 +91,9 @@ class Timeline:
             "start": start_timestamp.datetime_str
         })
 
-        if not quiet:
-            print(f"You started to spend time on '{activity}'.")
+        return activity_completed
 
-    def done(self, quiet: bool=True) -> None:
+    def done(self) -> Tuple[utils.Timestamp, utils.Timestamp, str]:
         # grab the most recent day and the most recent activity on that day
         last_activity = self.timeline[sorted(self.timeline.keys())[-1]][-1]
 
@@ -174,33 +101,28 @@ class Timeline:
         end_timestamp = utils.utc_now()
 
         last_activity["end"] = end_timestamp.datetime_str
-        if not quiet:
-            utils.print_elapsed_time_phrase(start_timestamp,
-                                            end_timestamp,
-                                            last_activity["name"])
 
-        # if the ongoing activity was started today, we're done.
-        if start_timestamp.date_str == end_timestamp.date_str:
-            return
-
-        # otherwise, fill any days in between the start time and today
         # quickly check that start time is not in the future.
         if start_timestamp.date_str > end_timestamp.date_str:
             raise TimelineError("Finishing activity before it was started. "
                                 "Maybe system clock is wrong?")
 
-        num_days = end_timestamp.datetime.day - start_timestamp.datetime.day
-        for offset in range(1, num_days + 1):
-            day = utils.offset_day(start_timestamp, days_offset=offset)
-            self.timeline[day] = [
-                {
-                    "id": last_activity["id"],
-                    "name": last_activity["name"],
-                    "start": last_activity["start"],
-                    "end": end_timestamp.datetime_str,
-                    "previous": "",
-                }
-            ]
+        # fill any days in between the start time and today
+        if start_timestamp.date_str != end_timestamp.date_str:
+            num_days = end_timestamp.datetime.day - start_timestamp.datetime.day
+            for offset in range(1, num_days + 1):
+                day = utils.offset_day(start_timestamp, days_offset=offset)
+                self.timeline[day] = [
+                    {
+                        "id": last_activity["id"],
+                        "name": last_activity["name"],
+                        "start": last_activity["start"],
+                        "end": end_timestamp.datetime_str,
+                        "previous": "",
+                    }
+                ]
+
+        return (start_timestamp, end_timestamp, last_activity["name"])
 
     def current_activity(self) -> Optional[Dict[str, str]]:
         if self.timeline == {}:
@@ -213,15 +135,14 @@ class Timeline:
 
         return last_activity
 
-    def save(self, quiet=True):
+    def save(self) -> str:
         timeline_file = (TYME_TIMELINES_DIR / self.user).with_suffix(".hjson")
-        if not quiet:
-            print(f"Saving timeline to {timeline_file}")
 
         with open(timeline_file, "w") as timeline:
             hjson.dump({"timeline": self.timeline,
                         "activities": self.activities},
                        timeline)
+        return str(timeline_file)
 
     def new_activity(self, activity, parents=False):
         """
@@ -235,64 +156,26 @@ class Timeline:
         If parents is true, the parents of an absolute activity path /p1/.../pn
         will also be created if they do not exist.
         """
-        if activity.startswith("/"):
-            activity_path = activity.split("/")[1:]
-            if "" in activity_path:
-                raise ValueError("malformed absolute activity path")
+        activity_path = activity.split("/")[1:]
+        if "" in activity_path:
+            raise ValueError("malformed absolute activity path")
 
-            *path, new_activity = activity_path
+        *path, new_activity = activity_path
 
-            current_category = self.activities
-            for category in path:
-                if category not in current_category:
-                    if not parents:
-                        raise ValueError(f"the activity '{category}' within "
-                                         f"'{activity}' does not exist")
-                    else:
-                        # just make a new activity.
-                        current_category[category] = (str(uuid.uuid4()), {})
-
-                # [1] is because the first element in each activity is a uuid
-                current_category = current_category[category][1]
-
-            current_category[new_activity] = (str(uuid.uuid4()), {})
-
-        elif "/" in activity:
-            raise ValueError("names of activities cannot contain '/'")
-
-        else:
-            current_category = self.activities
-            path = "/"
-            while True:
-                categories = list(current_category.keys())
-
-                if len(categories) == 0:
-                    break
-
-                print("0) here (at this level in the category hierarchy)")
-                for i, category in enumerate(categories):
-                    print(f"{i + 1}) {category}")
-
-                num_categories = len(current_category.keys())
-
-                print()
-                cat = input("Under which category should this activity be "
-                            f"placed? [0-{num_categories}] ")
-                print()
-                if not (cat.isnumeric() and 0 <= int(cat) <= num_categories):
-                    print("invalid category choice!")
-                    continue
-
-                cat = int(cat)
-
-                if cat == 0:
-                    break
+        current_category = self.activities
+        for category in path:
+            if category not in current_category:
+                if not parents:
+                    raise ValueError(f"the activity '{category}' within "
+                                     f"'{activity}' does not exist")
                 else:
-                    path += categories[cat - 1] + "/"
-                    current_category = current_category[categories[cat - 1]][1]
+                    # just make a new activity.
+                    current_category[category] = (str(uuid.uuid4()), {})
 
-            current_category[activity] = (str(uuid.uuid4()), {})
-            print(f"activity created at '{path + activity}'")
+            # [1] is because the first element in each activity is a uuid
+            current_category = current_category[category][1]
+
+        current_category[new_activity] = (str(uuid.uuid4()), {})
 
     def activity_id(self, activity: str) -> Optional[str]:
         def search(category: JSONActivities) -> Optional[str]:
@@ -311,7 +194,7 @@ class Timeline:
 
     @staticmethod
     def make_empty(user: str):
-        Timeline(user=user, timeline={}, activities={}).save(quiet=False)
+        Timeline(user=user, timeline={}, activities={}).save()
 
     @staticmethod
     def default_user() -> str:
