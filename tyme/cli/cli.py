@@ -17,6 +17,12 @@ def parse_args():
                         help="Specify a user. If this is not present, then "
                         "the default user is assumed.")
 
+    parser.add_argument("--no-color",
+                        "-c",
+                        required=False,
+                        action="store_true",
+                        help="Disable colors globally.")
+
     commands = parser.add_subparsers(title="commands",
                                      required=True,
                                      dest="command",
@@ -73,9 +79,12 @@ def parse_args():
 
 def main():
     tyme_init()
-    colorama.init(autoreset=True)
-
     args = parse_args()
+
+    if args.no_color:
+        colorama.init(autoreset=True, strip=True, convert=False)
+    else:
+        colorama.init(autoreset=True)
 
     try:
         timeline = Timeline(user=args.user)
