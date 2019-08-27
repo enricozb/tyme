@@ -1,6 +1,8 @@
 import argparse
 import sys
 
+import colorama
+
 from tyme.timeline import Timeline, TimelineError
 from tyme import init as tyme_init
 
@@ -49,11 +51,20 @@ def parse_args():
 
     commands.add_parser("status", help="Output the current activity if any.")
 
+    log = commands.add_parser("log",
+                              help="Get a log of some recent activities.")
+    log.add_argument("number",
+                     nargs="?",
+                     default=5,
+                     type=int,
+                     help="The number of events to display. Defaults to 5.")
+
     return parser.parse_args()
 
 
 def main():
     tyme_init()
+    colorama.init(autoreset=True)
 
     args = parse_args()
 
@@ -71,6 +82,9 @@ def main():
 
         elif args.command == "status":
             timeline.print_status()
+
+        elif args.command == "log":
+            timeline.print_log(num=args.number)
 
         timeline.save()
 

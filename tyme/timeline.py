@@ -1,7 +1,9 @@
 import uuid
+from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 import hjson
+from colorama import Fore, Style
 
 import tyme.utils as utils
 from tyme.common import *
@@ -61,7 +63,86 @@ class Timeline:
                                             current_activity["name"],
                                             ongoing=True)
 
-    def start(self, activity: str, quiet: bool = True) -> None:
+    def print_log(self, num: int = 5) -> None:
+        def most_recent_activities(num) -> Dict[str, List[Dict[str, str]]]:
+            count = 0
+
+            # `activities`: a map from day (str) to a list of timeline entries
+            activities: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+
+            # Grab the most recent `num` events
+            for day in sorted(self.timeline.keys(), reverse=True):
+                for activity in self.timeline[day][::-1]:
+                    # not a real activity, but a link to one on a previous day
+                    if "previous" in activity:
+                        continue
+
+                    activities[day].append(activity)
+
+                    count += 1
+                    if count == num:
+                        return dict(activities)
+
+            return dict(activities)
+
+        activities = most_recent_activities(num)
+
+        # Show the oldest event first, so the most recent is at the bottom.
+        last_end: Optional[utils.Timestamp] = None
+        for day in sorted(activities):
+            print(f"On {day}:")
+            for activity in activities[day][::-1]:
+                name = activity["name"]
+                start = utils.parse(activity["start"])
+
+                end: Optional[utils.Timestamp] = None
+                if "end" in activity:
+                    end = utils.parse(activity["end"])
+
+                if end is not None:
+                    phrase = utils.format_elapsed_time_phrase(start,
+                                                              end,
+                                                              name,
+                                                              short=True)
+                else:
+                    phrase = utils.format_elapsed_time_phrase(start,
+                                                              utils.utc_now(),
+                                                              name,
+                                                              short=True)
+
+                # time passed between the end of the last event and the start
+                # of this one. Therefore, there is time unaccounted for.
+                if last_end is not None and last_end != start:
+                    unalloc_phrase = utils.format_elapsed_time_phrase(
+                        last_end, start, "", short=True)
+
+                    print(Fore.RED + " |")
+                    print(Style.DIM + Fore.RED + " |", end="")
+                    print(Fore.RED + f" ({unalloc_phrase})")
+                    print(Fore.RED + " |")
+
+                else:
+                    print(Fore.BLUE + " V")
+
+                print(Fore.BLUE + f" |-", end="")
+                print(Fore.GREEN + f"{name}", end="")
+                print(Style.BRIGHT + Fore.YELLOW + f" ({phrase}):")
+                print(Fore.BLUE + f" |", end="")
+                print(f"   start: ", end="")
+                print(Fore.YELLOW + f"{start.time_str}")
+
+                print(Fore.BLUE + " |", end="")
+                if end is None:
+                    print(Fore.YELLOW + "          ...")
+                else:
+                    print(f"   end:   ", end="")
+                    print(Fore.YELLOW + f"{end.time_str}")
+
+                last_end = end
+
+        print(Fore.BLUE + " V")
+
+    def start(self, activity: str, quiet: bool=True) -> None:
         """
         Completes any ongoing activity and starts a new one.
         """
@@ -85,7 +166,7 @@ class Timeline:
         if not quiet:
             print(f"You started to spend time on '{activity}'.")
 
-    def done(self, quiet: bool = True) -> None:
+    def done(self, quiet: bool=True) -> None:
         # grab the most recent day and the most recent activity on that day
         last_activity = self.timeline[sorted(self.timeline.keys())[-1]][-1]
 

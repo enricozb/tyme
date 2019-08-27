@@ -8,7 +8,11 @@ class Timestamp:
     def __init__(self, datetime: datetime) -> None:
         self.datetime = datetime
         self.date_str: str = datetime.date().isoformat()
+        self.time_str: str = datetime.time().isoformat()
         self.datetime_str: str = datetime.strftime(day_and_time_format)
+
+    def __eq__(self, other):
+        return self.datetime == other.datetime
 
 
 def utc_now() -> Timestamp:
@@ -22,11 +26,12 @@ def parse(day_and_time: str) -> Timestamp:
         datetime=datetime.strptime(day_and_time, day_and_time_format))
 
 
-def print_elapsed_time_phrase(
+def format_elapsed_time_phrase(
         start: Timestamp,
         end: Timestamp,
         activity: str,
-        ongoing=False) -> None:
+        ongoing=False,
+        short=False) -> str:
     delta = end.datetime - start.datetime
 
     day = delta.days
@@ -49,11 +54,26 @@ def print_elapsed_time_phrase(
         *rest, last = phrase
         phrase = [*rest, "and", last]
 
+    phrase_str = " ".join(phrase)
+
+    if short:
+        return phrase_str
+
     if ongoing:
-        print(f"You are currently doing '{activity}'.")
-        print("You have been doing so for " + " ".join(phrase) + ".")
+        return (f"You are currently spending time on '{activity}'.\n"
+                "You have been doing so for " + phrase_str + ".")
     else:
-        print("You spent " + " ".join(phrase) + f" on '{activity}'.")
+        return "You spent " + phrase_str + f" on '{activity}'."
+
+
+def print_elapsed_time_phrase(
+        start: Timestamp,
+        end: Timestamp,
+        activity: str,
+        ongoing=False,
+        short=False) -> None:
+
+    print(format_elapsed_time_phrase(start, end, activity, ongoing, short))
 
 
 def offset_day(ts: Timestamp, days_offset: int) -> str:
