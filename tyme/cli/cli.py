@@ -62,6 +62,12 @@ def parse_args():
                      type=int,
                      help="The number of events to display. Defaults to 5.")
 
+    where = commands.add_parser("where",
+                                help="Get the full path of an activity.")
+
+    where.add_argument("activity",
+                       metavar="Activity",
+                       help="The activity whose path is to be determined.")
     return parser.parse_args()
 
 
@@ -94,6 +100,9 @@ def main():
         elif args.command == "log":
             recent_activities = timeline.recent_activities(num=args.number)
             render.print_log(recent_activities)
+
+        elif args.command == "where":
+            print(timeline.activity_path(args.activity))
 
         timeline.save()
 

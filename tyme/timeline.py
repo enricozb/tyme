@@ -177,14 +177,35 @@ class Timeline:
 
         current_category[new_activity] = (str(uuid.uuid4()), {})
 
+    def activity_path(self, activity: str) -> Optional[str]:
+        def search(category, path):
+            """
+            Returns the path if activity is under the sub-tree `category`
+            otherwise returns None
+            """
+            for name, (_, children) in category.items():
+                if name == activity:
+                    return f"{path}/{activity}"
+
+                potential_path = search(children, f"{path}/{name}")
+                if potential_path is not None:
+                    return potential_path
+
+            return None
+
+        return search(self.activities, "")
+
     def activity_id(self, activity: str) -> Optional[str]:
         def search(category: JSONActivities) -> Optional[str]:
-            children = category
-            for cat_name, (cat_id, cat_children) in children.items():
-                if cat_name == activity:
-                    return cat_id
+            """
+            Returns the id of `activity` if it is under the sub-tree `category`
+            otherwise returns None
+            """
+            for name, (activity_id, children) in category.items():
+                if name == activity:
+                    return activity_id
 
-                potential_id = search(cat_children)
+                potential_id = search(children)
                 if potential_id is not None:
                     return potential_id
 
