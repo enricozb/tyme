@@ -1,6 +1,13 @@
+"""
+Main API for interfacing with timeline internal representation. Timelines
+are .hjson files with two fields, "timeline" and "activities". The first is
+a mapping between days and lists of occurences of activities. The second is
+the activity hierarchy.
+"""
+
 import uuid
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import hjson
 
@@ -30,6 +37,13 @@ class Timeline:
         Creates a timeline with a user. If a user is not specified, then
         the defauly user is used. If a user is specified, then that user's
         timeline is loaded, unless timeline & activities are also passed in.
+
+        Args:
+            user (str): the user whose timeline is being loaded/created
+            timeline (Optional[JSONTimeline]):
+                a timeline to use if `user` doesn't yet exist
+            activities (Optional[JSONActivities]):
+                an activity hierarchy to use if `user` doesn't yet exist
         """
         if user is None:
             user = Timeline.default_user()
@@ -49,12 +63,25 @@ class Timeline:
                 "both timeline and activies must have values or be None")
 
     def recent_activities(self, num: int) -> Dict[str, List[Dict[str, str]]]:
+        """
+        Returns the `num` most recent activities. The returned object is a
+        dictionary with dates as keys and lists of activities as values. Each
+        activity is also a dictionary, with the same fields present in the
+        timeline.hjson file. The lists are ordered by oldest event first.
+
+        Args:
+            num (int): the number of activities to return
+
+        Returns:
+            Dict[str, List[Dict[str, str]]]: the `num` most recent activities
+        """
+
         # `activities`: a map from day (str) to a list of timeline entries
         activities: Dict[str, List[Dict[str, str]]] = defaultdict(list)
 
         # Grab the most recent `num` events
         for day in sorted(self.timeline.keys(), reverse=True):
-            for activity in self.timeline[day][::-1]:
+            for activity in self.timeline[day]:
                 # not a real activity, but a link to one on a previous day
                 if "previous" in activity:
                     continue
@@ -71,6 +98,15 @@ class Timeline:
               activity: str) -> Optional[Tuple[utils.Timestamp, utils.Timestamp, str]]:
         """
         Completes any ongoing activity and starts a new one.
+
+        Args:
+            activity (str): the activity to be started
+
+        Returns:
+            Optional[Tuple[utils.Timestamp, utils.Timestamp, str]]:
+                information about the activity that was completed in order to
+                start this one: start/end/name. If there was no previous activity, this is
+                `None`.
         """
         activity_id = self.activity_id(activity)
         if activity_id is None:
@@ -94,6 +130,15 @@ class Timeline:
         return activity_completed
 
     def done(self) -> Tuple[utils.Timestamp, utils.Timestamp, str]:
+        """
+        Completes the ongoing activity. There must be an ongoing activity for
+        this method to be called successfully.
+
+        Returns:
+            Tuple[utils.Timestamp, utils.Timestamp, str]:
+                information about the activity that was completed:
+                start/end/name.
+        """
         # grab the most recent day and the most recent activity on that day
         last_activity = self.timeline[sorted(self.timeline.keys())[-1]][-1]
 
@@ -125,6 +170,13 @@ class Timeline:
         return (start_timestamp, end_timestamp, last_activity["name"])
 
     def current_activity(self) -> Optional[Dict[str, str]]:
+        """
+        Returns the ongoing activity if there is one. Returns `None` otherwise.
+
+        Returns:
+            Optional[Dict[str, str]]:
+                The literal JSON that represents this activity.
+        """
         if self.timeline == {}:
             return None
 
@@ -136,6 +188,12 @@ class Timeline:
         return last_activity
 
     def save(self) -> str:
+        """
+        Saves this timeline to the default location:
+
+        Returns:
+            str: the location of the .hjson file that was saved.
+        """
         timeline_file = (TYME_TIMELINES_DIR / self.user).with_suffix(".hjson")
 
         with open(timeline_file, "w") as timeline:
@@ -178,6 +236,17 @@ class Timeline:
         current_category[new_activity] = (str(uuid.uuid4()), {})
 
     def activity_path(self, activity: str) -> Optional[str]:
+        """
+        Returns the absolute path leading to activity `activity` if there is
+        one. Otherwise, return `None`.
+
+        Args:
+            activity (str): the activity whose absolute path is desired
+
+        Returns:
+            Optional[str]: the absolute path leading to `activity` if there
+                is one
+        """
         def search(category, path):
             """
             Returns the path if activity is under the sub-tree `category`
@@ -196,6 +265,17 @@ class Timeline:
         return search(self.activities, "")
 
     def activity_id(self, activity: str) -> Optional[str]:
+        """
+        Returns the uuid4 corresponding to activity `activity` if there is one.
+        Otherwise, return `None`.
+
+        Args:
+            activity (str): the activity whose id is desired
+
+        Returns:
+            Optional[str]: the uuid4 corresponding to `activity` if there is
+                one
+        """
         def search(category: JSONActivities) -> Optional[str]:
             """
             Returns the id of `activity` if it is under the sub-tree `category`
@@ -214,16 +294,39 @@ class Timeline:
         return search(self.activities)
 
     @staticmethod
-    def make_empty(user: str):
+    def make_empty(user: str) -> None:
+        """
+        Creates an empty timeline for user `user`.
+
+        Args:
+            user (str): the user whose timeline is being created
+        """
         Timeline(user=user, timeline={}, activities={}).save()
 
     @staticmethod
     def default_user() -> str:
+        """
+        Returns the default user.
+
+        Returns:
+            str: the name of the default user
+        """
         with open(TYME_STATE_FILE) as state_file:
             return hjson.load(state_file)["default_user"]
 
     @staticmethod
-    def load_user_timeline(user: str):
+    def load_user_timeline(user: str) -> Any:
+        """
+        Loads and returns the json object corresponding to a users timeline.
+        This will contain two fields "timeline" and "activites", each
+        corresponding to a JSONTimeline and JSONActivities object respectively.
+
+        Args:
+            str: the user whose timeline is desired
+
+        Returns:
+            The json object corresponding to a users timeline
+        """
         user_timeline_path = (TYME_TIMELINES_DIR / user).with_suffix(".hjson")
         with open(user_timeline_path) as timeline:
             return hjson.load(timeline)

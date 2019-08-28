@@ -1,3 +1,7 @@
+"""
+Contains constants regarding the location of all `tyme` local data.
+"""
+
 from pathlib import Path
 
 TYME_DIR = Path.home() / ".tyme"

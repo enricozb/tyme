@@ -1,3 +1,7 @@
+"""
+Entrypoint for tyme cli
+"""
+
 import argparse
 import sys
 
@@ -78,6 +82,10 @@ def parse_args():
 
 
 def main():
+    """
+    Entrypoint for tyme's cli.
+    """
+
     tyme_init()
     args = parse_args()
 
