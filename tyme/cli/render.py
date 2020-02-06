@@ -4,13 +4,13 @@ These functions format and color any output that is sent to stdout.
 Any fancy output that you see from tyme has been generated here.
 """
 
-from typing import Dict, List, Optional, Tuple
-
-from colorama import Fore, Style
-
 import tyme.utils as utils
 from tyme.timeline import JSONActivities
+from tyme.cli import fzf
 
+from colorama import Fore, Style
+from typing import Dict, List, Optional, Tuple
+# from pyfzf import FzfPrompt
 
 def start(activity: str,
           done_activity: Tuple[utils.Timestamp, utils.Timestamp, str]) -> None:
@@ -225,36 +225,21 @@ def select_activity_path(activity: str, activities: JSONActivities) -> str:
     elif "/" in activity:
         raise ValueError("names of activities cannot contain '/'")
 
-    # otherwise, find out the path interactively
-    current_category = activities
-    path = "/"
-    while True:
-        categories = list(current_category.keys())
+    # find out the path interactively using fzf
+    print("where do you want to place the activity '{activity}'?")
+    def enumerate_activity_hierarchy_paths(tree):
+      out = []
+      for name, (id, subtree) in tree.items():
+        out.append(f"{name}/")
 
-        if len(categories) == 0:
-            break
+      for name, (id, subtree) in tree.items():
+        for subpath in enumerate_activity_hierarchy_paths(subtree):
+          out.append(f"{name}/{subpath}")
+      return out
 
-        print("0) here (at this level in the category hierarchy)")
-        for i, category in enumerate(categories):
-            print(f"{i + 1}) {category}")
-
-        num_categories = len(current_category.keys())
-
-        print()
-        index = input("Under which category should this activity be "
-                      f"placed? [0-{num_categories}] ")
-        print()
-        if not (index.isnumeric() and 0 <= int(index) <= num_categories):
-            print("invalid category choice!")
-            continue
-
-        cat = int(index)
-
-        if cat == 0:
-            break
-        else:
-            path += categories[cat - 1] + "/"
-            current_category = current_category[categories[cat - 1]][1]
+    path = fzf.iterfzf(["/", *enumerate_activity_hierarchy_paths(activities)])
+    if path is None:
+        raise RuntimeError("no path was selected")
 
     return path + activity
 
