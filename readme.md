@@ -3,7 +3,7 @@ A command-line utility (soon to be joined by an iOS app) that lets you track
 what you spend your time on.
 
 ## Installation
-```bash
+```sh
 pip install tyme --user
 ```
 the `--user` flag might not be necessary if you own your machine. Make sure
@@ -110,3 +110,6 @@ optional arguments:
                     /projects/tyme` will create /projects and /projects/tyme
                     if /projects doesn't already exist
 ```
+
+## To Do
+See [todo](todo.md).
